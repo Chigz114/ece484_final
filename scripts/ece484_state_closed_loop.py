@@ -61,9 +61,12 @@ if __name__ == "__main__":
     # max step is 1000 (i.e. 1000*0.05 = 50s), you should be able to travel 2 laps within 50s
     cur_step = 0
     MAX_STEP = 1000
-    trajectory = [state]
+    trajectory = [[state[0], state[1], state[2], state[6]]]
     while cur_step <= MAX_STEP:
         control = state_controller(state)
+        # If controller signals completion (returns None), stop simulation
+        if control is None:
+            break
         state = drone_dynamics(state, control)
         trajectory.append([state[0],state[1],state[2],state[6]]) # N * 7 
         cur_step = cur_step + 1  # update cur_step

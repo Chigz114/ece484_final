@@ -32,6 +32,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import math
 from scipy.spatial.transform import Rotation as R
 import plotly.graph_objects as go
+import os
 
 GATE_RADIUS = 0.38 #gate Radius
 
@@ -52,7 +53,7 @@ def generate_gate_circle(gx, gy, gz, yaw, num_points=100):
 
     return x_final, y_final, z_final
 
-def plot_with_plotly(trajectory, gates):
+def plot_with_plotly(trajectory, gates, save_path=None):
 
     """Takes the Numpy format of trajectory points and dictinary format of gate corrdinates and plots it"""
     fig = go.Figure()
@@ -129,7 +130,11 @@ def plot_with_plotly(trajectory, gates):
         margin=dict(l=0, r=0, b=0, t=40)
     )
 
-    fig.show()
+    if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        fig.write_html(save_path)
+    else:
+        fig.show()
 
 
 def read_trajectory(filename):
@@ -265,6 +270,8 @@ def parse_args():
                         help="Flag for visualization (default: False)")
     parser.add_argument("--metricsflag", type=bool, default=True, nargs='?', const=False,
                         help="Flag for metrics (default: False)")
+    parser.add_argument("--visoutdir", type=str, default="./vis",
+                        help="Directory to save visualization HTML when visflag is True")
     
     return parser.parse_args()
 
@@ -287,7 +294,8 @@ if __name__ == "__main__":
     avg_distance, lt, sr = evaluate_trajectory(trajectory, gates)
 
     if vflag:
-        plot_with_plotly(trajectory, gates)
+        out_html = os.path.join(args.visoutdir, f"{track}_trajectory.html")
+        plot_with_plotly(trajectory, gates, save_path=out_html)
 
 
     if mflag:

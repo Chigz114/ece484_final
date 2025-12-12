@@ -32,17 +32,18 @@ def drone_dynamics(state, control, dt=0.05):
     Returns:
     numpy array: Updated state after dt seconds.
     """
-    # Unpack state and control
+    # Unpack state and control (control is in body/local frame)
     px, py, pz, vx, vy, vz, yaw = state
-    ax_global, ay_global, az_global, yaw_rate = control
+    ax_local, ay_local, az_local, yaw_rate = control
 
     # Coordinate transformation for acceleration from local to global frame
     cos_yaw = np.cos(yaw)
     sin_yaw = np.sin(yaw)
 
-    # ax_global = ax_local * cos_yaw - ay_local * sin_yaw
-    # ay_global = ax_local * sin_yaw + ay_local * cos_yaw
-    # az_global = az_local
+    # Transform local accelerations to global frame
+    ax_global = ax_local * cos_yaw - ay_local * sin_yaw
+    ay_global = ax_local * sin_yaw + ay_local * cos_yaw
+    az_global = az_local
 
     # Update global velocity
     vx += ax_global * dt

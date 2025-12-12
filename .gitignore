@@ -1,6 +1,58 @@
-outputs/*
-circle/*
-lemniscate/*
-uturn/*
-scripts/circle_traj.txt
+# NeRF outputs and rendered images
+outputs/
+circle/
+lemniscate/
+uturn/
 
+# Training data and models (too large)
+npe_datasets/
+npe_models/
+
+# Generated videos and simulation outputs
+videos/
+closed_loop/
+
+# Training directories
+train_gate/
+train_ellipse/
+one_gate/
+empty_arena/
+manual_dataset/
+images/
+
+# Trajectory files (generated)
+*_trajectory.txt
+*_vision_trajectory.txt
+scripts/*_trajectory.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Generated HTML visualizations
+scripts/vis/
+
+# Metrics JSON (generated)
+scripts/*_metrics.json
+
+# Deprecated/unused files
+interactive_camera_tool.py
+interactive_npe_test.py
+ns_renderer_4_gates.py
+test_model_on_trainset.py
+test_vision_controller.py
+generate_gate_focused_data.py
+
+# Plot generation scripts (presentation specific)
+scripts/generate_npe_comparison.py
+scripts/generate_npe_heatmap.py
+scripts/generate_npe_training_plot.py
+scripts/generate_plots.py
+presentation_outline.md

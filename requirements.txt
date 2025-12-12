@@ -1,5 +1,3 @@
 opencv-python
 scipy
 plotly
-numpy==1.24.3
-

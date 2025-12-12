@@ -13,14 +13,15 @@ It utilizes the Nerfstudio framework to handle camera transformations and image 
 USE this script to generate training data for vision control.
 """
 
-import torch 
+import torch
+import numpy as np
+
 from nerfstudio.models.splatfacto import SplatfactoModel
 from scipy.spatial.transform import Rotation as R 
 import cv2 
 from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.utils.eval_utils import eval_setup
-from nerfstudio.utils import colormaps
-import numpy as np 
+from nerfstudio.utils import colormaps 
 import os 
 from pathlib import Path
 import matplotlib.pyplot as plt 
@@ -70,7 +71,7 @@ class NerfRenderer:
         metadata = None, 
         cx = None,
         cy = None,
-        track = track_path
+        track = None
     ):
 
         """
@@ -111,16 +112,35 @@ class NerfRenderer:
 
         self.metadata = metadata
 
-        _, pipeline, _, step = eval_setup(
-            self.config_path,
-            eval_num_rays_per_chunk=640*480//4,
-            test_mode='inference'
-        )
+        # Temporarily override torch.load to use weights_only=False for old checkpoints
+        original_load = torch.load
+        torch.load = lambda *args, **kwargs: original_load(*args, **{**kwargs, 'weights_only': False})
+        
+        try:
+            _, pipeline, _, step = eval_setup(
+                self.config_path,
+                eval_num_rays_per_chunk=640*480//4,
+                test_mode='inference'
+            )
+        finally:
+            torch.load = original_load
+            
         self.model = pipeline.model
 
-
-        with open("./outputs/"+track_path+"/nerfacto/"+track_path+"/dataparser_transforms.json", 'r') as f:
-            self.dp_trans_info = json.load(f)
+        # Load dataparser transforms from same directory as config
+        config_dir = Path(config_path).parent
+        transforms_path = config_dir / "dataparser_transforms.json"
+        if transforms_path.exists():
+            with open(transforms_path, 'r') as f:
+                self.dp_trans_info = json.load(f)
+        else:
+            self.dp_trans_info = None
+            print(f"Warning: dataparser_transforms.json not found at {transforms_path}")
+        
+        print(f"\n✓ NerfRenderer initialized successfully")
+        print(f"  Config: {config_path}")
+        print(f"  Resolution: {width}x{height}")
+        print(f"  Device: {self.model.device}\n")
 
     def render(self, cam_state:np.ndarray):
         """
@@ -159,14 +179,19 @@ class NerfRenderer:
         camera = Cameras(camera_to_worlds = camera_to_world, fx = self.fx, fy = self.fy, cx = self.cx, cy = self.cy, width=self.nerfW, height=self.nerfH, distortion_params=self.distortion_params, camera_type=self.camera_type, metadata=self.metadata)
         camera = camera.to('cuda')
         
-        ray_bundle = camera.generate_rays(camera_indices=0, aabb_box=None)
+        # Use get_outputs_for_camera instead of get_outputs_for_camera_ray_bundle
         s = time.time()
         with torch.no_grad():
-            tmp = self.model.get_outputs_for_camera_ray_bundle(ray_bundle)
-        print(f"NN Inference setup time: {round(time.time() - s, 2)}s")
+            tmp = self.model.get_outputs_for_camera(camera)
+        # print(f"NN Inference time: {round(time.time() - s, 2)}s")
 
-        # Extract RGB image
-        img = tmp['rgb']
+        # Extract RGB image (key name varies by model)
+        if 'rgb' in tmp:
+            img = tmp['rgb']
+        elif 'composite_rgb' in tmp:
+            img = tmp['composite_rgb']
+        else:
+            raise KeyError(f"RGB key not found. Available keys: {tmp.keys()}")
         img =(colormaps.apply_colormap(image=img, colormap_options=colormaps.ColormapOptions())).cpu().numpy() # Apply colormap
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = (img * 255).astype(np.uint8)
