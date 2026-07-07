@@ -125,6 +125,7 @@ def _initialize_npe_controller():
     global _npe_model, _device, _transform, _gates, _gate_order, _gate_normals
     global _initial_gate_sides, _gate_plane_sides
     global _current_trajectory, _lookahead_dist, _yaw_lookahead_dist, _filtered_yaw_rate
+    global _is_closed_trajectory
     global _current_track
     global _ekf, _use_ekf, _ekf_dynamics_noise
     
@@ -150,20 +151,40 @@ def _initialize_npe_controller():
     
     # Initialize trajectory globals
     _current_trajectory = None
-    _lookahead_dist = 0.6  # Reduced look-ahead to force tighter path tracking (avoid cutting corners)
-    _yaw_lookahead_dist = 2.0  # Keep yaw smooth
+    if _current_track == "lemniscate":
+        # Tighter and slower tracking for figure-8 to avoid corner-cutting
+        _lookahead_dist = 0.45
+        _yaw_lookahead_dist = 1.4
+        _is_closed_trajectory = True
+    else:
+        _lookahead_dist = 0.6
+        _yaw_lookahead_dist = 2.0
+        _is_closed_trajectory = False
     _filtered_yaw_rate = 0.0   # For low-pass filtering
     
     # Initialize EKF for sensor fusion
-    # Balance: trust dynamics for smoothness, but trust NPE enough for turns
+    # For lemniscate: trust dynamics a bit more to suppress visual spikes
+    if _current_track == "lemniscate":
+        ekf_cfg = dict(
+            process_noise_pos=0.010,
+            process_noise_vel=0.035,
+            process_noise_yaw=0.020,
+            obs_noise_pos=0.18,
+            obs_noise_yaw=0.10,
+        )
+    else:
+        ekf_cfg = dict(
+            process_noise_pos=0.015,
+            process_noise_vel=0.05,
+            process_noise_yaw=0.03,
+            obs_noise_pos=0.12,
+            obs_noise_yaw=0.06,
+        )
+
     _ekf = DroneEKF(
-        process_noise_pos=0.015,     # Medium - balance between smoothness and responsiveness
-        process_noise_vel=0.05,      # Medium
-        process_noise_yaw=0.03,      # Medium
-        obs_noise_pos=0.12,          # Medium - trust NPE reasonably (actual error ~8cm)
-        obs_noise_yaw=0.06,          # Medium
+        **ekf_cfg,
         dynamics_noise_enabled=_ekf_dynamics_noise,
-        dynamics_noise_accel=0.5,    # Simulated real-world noise (when enabled)
+        dynamics_noise_accel=0.5,
         dynamics_noise_yaw_rate=0.15
     )
     
@@ -272,6 +293,97 @@ def generate_arc(center, radius, start_angle, end_angle, z, num_points=30):
     points[:, 1] = center[1] + radius * np.sin(angles)
     points[:, 2] = z
     return points
+
+
+def _quintic_coeffs(p0, v0, a0, p1, v1, a1, T):
+    """Solve 1D quintic polynomial coefficients with boundary pos/vel/acc constraints."""
+    c0 = p0
+    c1 = v0
+    c2 = 0.5 * a0
+
+    M = np.array([
+        [T**3, T**4, T**5],
+        [3*T**2, 4*T**3, 5*T**4],
+        [6*T, 12*T**2, 20*T**3],
+    ], dtype=np.float64)
+
+    b = np.array([
+        p1 - (c0 + c1*T + c2*T**2),
+        v1 - (c1 + 2*c2*T),
+        a1 - (2*c2),
+    ], dtype=np.float64)
+
+    c3, c4, c5 = np.linalg.solve(M, b)
+    return np.array([c0, c1, c2, c3, c4, c5], dtype=np.float64)
+
+
+def _eval_quintic(coeffs, t):
+    """Evaluate quintic polynomial for scalar or vector t."""
+    return (
+        coeffs[0]
+        + coeffs[1] * t
+        + coeffs[2] * t**2
+        + coeffs[3] * t**3
+        + coeffs[4] * t**4
+        + coeffs[5] * t**5
+    )
+
+
+def generate_full_lemniscate_trajectory(gates, gate_order, gate_normals,
+                                        straight_dist=0.6):
+    """
+    Generate one full-lap lemniscate trajectory once, using the same
+    gate-to-gate 8-segment primitive as the original controller design.
+    This preserves "straight-through gate + spline between gates" behavior
+    while avoiding runtime segment stitching.
+    """
+    # Closed constrained quintic spline over 4 gates.
+    # Enforced constraints at every gate:
+    #   - position = gate center
+    #   - tangent direction = gate normal (vertical crossing direction)
+    #   - acceleration = 0 (soft C2 behavior and reduced corner sharpness)
+    pts = np.array([np.array(gates[name][0:3], dtype=np.float64) for name in gate_order])
+    tangents = np.array(gate_normals, dtype=np.float64)
+    n = len(pts)
+
+    # Tangent magnitudes: proportional to neighboring chord lengths for fuller loops.
+    tangent_speeds = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        d_prev = np.linalg.norm(pts[i] - pts[(i - 1) % n])
+        d_next = np.linalg.norm(pts[(i + 1) % n] - pts[i])
+        avg_chord = 0.5 * (d_prev + d_next)
+        tangent_speeds[i] = 0.72 * avg_chord
+
+    segments = []
+    for i in range(n):
+        p0 = pts[i]
+        p1 = pts[(i + 1) % n]
+
+        v0 = tangents[i] * tangent_speeds[i]
+        v1 = tangents[(i + 1) % n] * tangent_speeds[(i + 1) % n]
+
+        a0 = np.zeros(3, dtype=np.float64)
+        a1 = np.zeros(3, dtype=np.float64)
+
+        chord = np.linalg.norm(p1 - p0)
+        T = max(chord / 2.4, 0.8)
+
+        cx = _quintic_coeffs(p0[0], v0[0], a0[0], p1[0], v1[0], a1[0], T)
+        cy = _quintic_coeffs(p0[1], v0[1], a0[1], p1[1], v1[1], a1[1], T)
+        cz = _quintic_coeffs(p0[2], v0[2], a0[2], p1[2], v1[2], a1[2], T)
+
+        ts = np.linspace(0.0, T, 120, endpoint=False)
+        seg = np.stack([
+            _eval_quintic(cx, ts),
+            _eval_quintic(cy, ts),
+            _eval_quintic(cz, ts),
+        ], axis=1)
+
+        if i > 0:
+            seg = seg[1:]
+        segments.append(seg)
+
+    return np.vstack(segments)
 
 
 def generate_8segment_trajectory(start_pos, start_normal, end_pos, end_normal, 
@@ -383,15 +495,23 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
         vision_controller._prev_pos = None  # For velocity estimation
         vision_controller._dt = 0.05  # Time step
         vision_controller._last_control = [0, 0, 0, 0]  # For EKF prediction
+        vision_controller._traj_progress_idx = 0
     
-    # Velocity Control Gains
-    KP_VEL = np.array([4.0, 4.0, 4.0])  # Velocity P gain (accel to maintain velocity)
-    TARGET_SPEED = 1.5  # Cruise speed in m/s
-    KP_YAW = 2.5
-    KD_YAW = 0.8
-    
+    # Velocity/Yaw gains (track-specific tuning)
+    if _current_track == "lemniscate":
+        KP_VEL = np.array([3.4, 3.4, 3.6])
+        TARGET_SPEED = 1.2
+        KP_YAW = 2.8
+        KD_YAW = 1.0
+        MAX_ACCEL = 4.0
+    else:
+        KP_VEL = np.array([4.0, 4.0, 4.0])
+        TARGET_SPEED = 1.5
+        KP_YAW = 2.5
+        KD_YAW = 0.8
+        MAX_ACCEL = 5.0
+
     # Limits
-    MAX_ACCEL = 5.0
     MAX_YAW_RATE = 2.0
     GATE_RADIUS = 0.38
     TOTAL_LAPS = 2
@@ -421,7 +541,8 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
         _ekf.predict(vision_controller._last_control, vision_controller._dt)
         
         # EKF Update: fuse with NPE observation
-        filtered_state = _ekf.update(npe_obs, outlier_threshold=3.0)
+        outlier_threshold = 2.4 if _current_track == "lemniscate" else 3.0
+        filtered_state = _ekf.update(npe_obs, outlier_threshold=outlier_threshold)
         
         # Use filtered estimates
         current_pos = filtered_state[:3]
@@ -462,22 +583,33 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
         
     # Generate trajectory if not exists (First Run)
     if _current_trajectory is None:
-        # For initial trajectory: straight towards gate, then align with gate normal
-        vec_to_target = target_pos - current_pos
-        dist = np.linalg.norm(vec_to_target)
-        if dist > 0.1:
-            start_dir = vec_to_target / dist
+        if _current_track == "lemniscate":
+            _current_trajectory = generate_full_lemniscate_trajectory(
+                _gates, _gate_order, _gate_normals,
+                straight_dist=0.6,
+            )
+            # Start progression from nearest point to current position
+            d_init = np.linalg.norm(_current_trajectory - current_pos, axis=1)
+            vision_controller._traj_progress_idx = int(np.argmin(d_init))
+            print("INFO: [Traj] Generated global full-lap lemniscate trajectory")
         else:
-            start_dir = np.array([np.cos(current_yaw), np.sin(current_yaw), 0.0])
-        
-        # Use 8-segment style: start with direction to target, end with gate normal
-        _current_trajectory = generate_8segment_trajectory(
-            current_pos, start_dir,
-            target_pos, _gate_normals[target_idx],
-            straight_dist=0.6,
-            track=_current_track
-        )
-        print(f"INFO: [Traj] Generated initial 8-segment trajectory to {gate_name}")
+            # For initial trajectory: straight towards gate, then align with gate normal
+            vec_to_target = target_pos - current_pos
+            dist = np.linalg.norm(vec_to_target)
+            if dist > 0.1:
+                start_dir = vec_to_target / dist
+            else:
+                start_dir = np.array([np.cos(current_yaw), np.sin(current_yaw), 0.0])
+
+            # Use 8-segment style: start with direction to target, end with gate normal
+            init_straight_dist = 0.45 if _current_track == "lemniscate" else 0.6
+            _current_trajectory = generate_8segment_trajectory(
+                current_pos, start_dir,
+                target_pos, _gate_normals[target_idx],
+                straight_dist=init_straight_dist,
+                track=_current_track
+            )
+            print(f"INFO: [Traj] Generated initial 8-segment trajectory to {gate_name}")
         
     # ========== Step 4: Gate Switching Logic ==========
     gate_normal = _gate_normals[target_idx]
@@ -489,11 +621,15 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
         
     # Check for plane crossing
     # Evaluator logic: crossed if side changes (product < 0) or we are exactly on plane (0)
-    if (current_side != prev_side and prev_side != 0):
+    # Important: only consider crossing when close enough to gate center; otherwise
+    # infinite-plane crossings far away can trigger false MISS events.
+    dist_to_center = np.linalg.norm(vec_to_gate - dist_to_plane * gate_normal)
+    crossing_activation_radius = 1.2 if _current_track == "lemniscate" else 1.0
+
+    if (current_side != prev_side and prev_side != 0 and dist_to_center < crossing_activation_radius):
         # Check if we actually passed through the gate (distance to center < radius)
         # Project current pos onto plane to find intersection point approx
-        dist_to_center = np.linalg.norm(vec_to_gate - dist_to_plane * gate_normal)
-            
+
         if dist_to_center < GATE_RADIUS * 1.5: # slightly generous radius for detection
             print(f"INFO: [NPE] Detected PASS for {gate_name} (Dist: {dist_to_center:.2f}m)")
                 
@@ -512,32 +648,36 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
                 for i in range(TOTAL_GATES):
                     _gate_plane_sides[i] = _initial_gate_sides[i]
                 
-            # Prepare new trajectory segment using 8-segment style
             prev_gate_idx = target_idx
             target_idx = vision_controller._target_gate_index # New target
-                
             prev_gate_name = _gate_order[prev_gate_idx]
             curr_gate_name = _gate_order[target_idx]
-                
-            prev_pos = np.array(_gates[prev_gate_name][0:3])
-            next_pos = np.array(_gates[curr_gate_name][0:3])
-            
-            # Use 8-segment trajectory:
-            # - Straight exit from prev gate (along its normal)
-            # - Curve to turn
-            # - Straight approach to next gate (along its normal)
-            # Special handling for uturn D->A (lap transition): 180° arc + straight + 90° arc
-            is_lap_transition = (prev_gate_idx == TOTAL_GATES - 1 and target_idx == 0)
-            _current_trajectory = generate_8segment_trajectory(
-                prev_pos, _gate_normals[prev_gate_idx],  # Start: prev gate pos and normal
-                next_pos, _gate_normals[target_idx],     # End: next gate pos and normal
-                straight_dist=0.8,
-                is_lap_transition=is_lap_transition,
-                track=_current_track  # Pass track name for track-specific handling
-            )
-            # Only uturn uses arc-straight-arc for lap transition
-            traj_type = "arc-straight-arc" if (is_lap_transition and _current_track == "uturn") else "8-segment"
-            print(f"INFO: [Traj] Generated {traj_type} {prev_gate_name} -> {curr_gate_name}")
+
+            if _current_track != "lemniscate":
+                # Non-lemniscate tracks keep segment-by-segment trajectory generation
+                prev_pos = current_pos.copy()
+                next_pos = np.array(_gates[curr_gate_name][0:3])
+
+                speed_xy = np.linalg.norm(current_vel[:2])
+                if speed_xy > 0.2:
+                    start_dir = current_vel / (np.linalg.norm(current_vel) + 1e-6)
+                else:
+                    start_dir = _gate_normals[prev_gate_idx]
+
+                seg_straight_dist = 0.8
+                is_lap_transition = (prev_gate_idx == TOTAL_GATES - 1 and target_idx == 0)
+                _current_trajectory = generate_8segment_trajectory(
+                    prev_pos, start_dir,
+                    next_pos, _gate_normals[target_idx],
+                    straight_dist=seg_straight_dist,
+                    is_lap_transition=is_lap_transition,
+                    track=_current_track
+                )
+                traj_type = "arc-straight-arc" if (is_lap_transition and _current_track == "uturn") else "8-segment"
+                print(f"INFO: [Traj] Generated {traj_type} {prev_gate_name} -> {curr_gate_name}")
+            else:
+                # Lemniscate uses one fixed global trajectory; only target gate index changes.
+                print(f"INFO: [Traj] Global lemniscate path active, switch target {prev_gate_name} -> {curr_gate_name}")
                 
             # Update target vars
             gate_name = curr_gate_name
@@ -546,28 +686,51 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
         else:
             # Missed pass
             print(f"WARNING: [NPE] Detected MISS for {gate_name} (Dist: {dist_to_center:.2f}m)")
-            _gate_plane_sides[target_idx] = current_side
-    elif current_side != 0:
+            # Keep side unchanged on MISS so controller can retry the same gate.
+    elif current_side != 0 and dist_to_center < crossing_activation_radius:
         _gate_plane_sides[target_idx] = current_side
         
     # ========== Step 5: Trajectory Tracking (Carrot) ==========
     # Find closest point on trajectory
-    dists = np.linalg.norm(_current_trajectory - current_pos, axis=1)
-    closest_idx = np.argmin(dists)
+    if _current_track == "lemniscate" and _is_closed_trajectory:
+        traj_len = len(_current_trajectory)
+        start_idx = vision_controller._traj_progress_idx
+        search_window = min(traj_len, 90)
+        candidate_indices = [(start_idx + i) % traj_len for i in range(search_window)]
+        candidate_points = _current_trajectory[candidate_indices]
+        candidate_dists = np.linalg.norm(candidate_points - current_pos, axis=1)
+        best_local = int(np.argmin(candidate_dists))
+        closest_idx = candidate_indices[best_local]
+        vision_controller._traj_progress_idx = closest_idx
+    else:
+        dists = np.linalg.norm(_current_trajectory - current_pos, axis=1)
+        closest_idx = np.argmin(dists)
         
     # Look ahead
     # Each point is roughly dist/50 apart.
     # Better: Find point at lookahead distance
     carrot_pos = _current_trajectory[-1] # Default to end
         
-    # Search forward from closest_idx
-    found_carrot = False
-    for i in range(closest_idx, len(_current_trajectory)):
-        dist_from_closest = np.linalg.norm(_current_trajectory[i] - _current_trajectory[closest_idx])
-        if dist_from_closest >= _lookahead_dist:
-            carrot_pos = _current_trajectory[i]
-            found_carrot = True
-            break
+    # Search forward from closest_idx by ARC LENGTH (not chord distance)
+    carrot_idx = len(_current_trajectory) - 1
+    accum_dist = 0.0
+    if _current_track == "lemniscate" and _is_closed_trajectory:
+        traj_len = len(_current_trajectory)
+        i = closest_idx
+        for _ in range(traj_len - 1):
+            j = (i + 1) % traj_len
+            accum_dist += np.linalg.norm(_current_trajectory[j] - _current_trajectory[i])
+            if accum_dist >= _lookahead_dist:
+                carrot_idx = j
+                break
+            i = j
+    else:
+        for i in range(closest_idx + 1, len(_current_trajectory)):
+            accum_dist += np.linalg.norm(_current_trajectory[i] - _current_trajectory[i - 1])
+            if accum_dist >= _lookahead_dist:
+                carrot_idx = i
+                break
+    carrot_pos = _current_trajectory[carrot_idx]
                 
     # ===== Velocity Control =====
     # Step 1: Compute target velocity DIRECTION (towards carrot)
@@ -579,8 +742,38 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
     else:
         direction = np.array([0.0, 0.0, 0.0])
     
-    # Step 2: Compute target velocity (direction * cruise speed)
-    target_vel = direction * TARGET_SPEED
+    # Step 2: Compute target velocity (direction * speed)
+    # Use curvature-aware speed scaling on lemniscate to avoid corner overshoot.
+    local_curvature = 0.0
+    if _current_track == "lemniscate" and _is_closed_trajectory:
+        traj_len = len(_current_trajectory)
+        p_prev = _current_trajectory[(closest_idx - 1) % traj_len]
+        p_cur = _current_trajectory[closest_idx]
+        p_next = _current_trajectory[(closest_idx + 1) % traj_len]
+    elif 0 < closest_idx < len(_current_trajectory) - 1:
+        p_prev = _current_trajectory[closest_idx - 1]
+        p_cur = _current_trajectory[closest_idx]
+        p_next = _current_trajectory[closest_idx + 1]
+    else:
+        p_prev = p_cur = p_next = None
+
+    if p_prev is not None:
+        v1 = p_cur - p_prev
+        v2 = p_next - p_cur
+        n1 = np.linalg.norm(v1)
+        n2 = np.linalg.norm(v2)
+        if n1 > 1e-5 and n2 > 1e-5:
+            cosang = np.clip(np.dot(v1, v2) / (n1 * n2), -1.0, 1.0)
+            turn_angle = np.arccos(cosang)
+            local_curvature = turn_angle / max(n1 + n2, 1e-5)
+
+    if _current_track == "lemniscate":
+        speed_scale = np.clip(1.0 - 1.6 * local_curvature, 0.65, 1.0)
+    else:
+        speed_scale = 1.0
+
+    target_speed = TARGET_SPEED * speed_scale
+    target_vel = direction * target_speed
     
     # Step 3: Compute velocity error (in WORLD frame)
     error_vel = target_vel - current_vel
@@ -603,14 +796,28 @@ def vision_controller(image, vx=0.0, vy=0.0, vz=0.0):
     # Use trajectory TANGENT at lookahead point (not direction TO lookahead)
     # This ensures yaw follows the curve direction, not the chord direction
     yaw_idx = len(_current_trajectory) - 1  # Default to end
-    for i in range(closest_idx, len(_current_trajectory)):
-        dist_from_closest = np.linalg.norm(_current_trajectory[i] - _current_trajectory[closest_idx])
-        if dist_from_closest >= _yaw_lookahead_dist:
-            yaw_idx = i
-            break
+    accum_yaw_dist = 0.0
+    if _current_track == "lemniscate" and _is_closed_trajectory:
+        traj_len = len(_current_trajectory)
+        i = closest_idx
+        for _ in range(traj_len - 1):
+            j = (i + 1) % traj_len
+            accum_yaw_dist += np.linalg.norm(_current_trajectory[j] - _current_trajectory[i])
+            if accum_yaw_dist >= _yaw_lookahead_dist:
+                yaw_idx = j
+                break
+            i = j
+    else:
+        for i in range(closest_idx + 1, len(_current_trajectory)):
+            accum_yaw_dist += np.linalg.norm(_current_trajectory[i] - _current_trajectory[i - 1])
+            if accum_yaw_dist >= _yaw_lookahead_dist:
+                yaw_idx = i
+                break
 
     # Compute trajectory tangent at yaw_idx (use adjacent points)
-    if yaw_idx < len(_current_trajectory) - 1:
+    if _current_track == "lemniscate" and _is_closed_trajectory:
+        tangent = _current_trajectory[(yaw_idx + 1) % len(_current_trajectory)] - _current_trajectory[yaw_idx]
+    elif yaw_idx < len(_current_trajectory) - 1:
         tangent = _current_trajectory[yaw_idx + 1] - _current_trajectory[yaw_idx]
     else:
         # At end of trajectory, use final segment direction

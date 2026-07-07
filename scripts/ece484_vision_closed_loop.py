@@ -11,7 +11,12 @@ saves the trajectory to a text file, and creating a video from the rendered imag
 import numpy as np
 import sys
 from drone_dynamics import drone_dynamics
-from ece484_vision_controller import vision_controller, set_track, TRACK_CONFIG
+from ece484_vision_controller import (
+    vision_controller,
+    set_track,
+    TRACK_CONFIG,
+    generate_full_lemniscate_trajectory,
+)
 import torch 
 from nerfstudio.models.splatfacto import SplatfactoModel
 from scipy.spatial.transform import Rotation as R 
@@ -154,6 +159,24 @@ if __name__ == "__main__":
     # Track-specific output directory
     output_dir = f"./closed_loop/{track}"
     os.makedirs(f"{output_dir}/images", exist_ok=True)
+
+    # Planned target path (for plotting)
+    planned_trajectory = None
+    gate_positions = TRACK_CONFIG[track]["gates"]
+    if track == "lemniscate":
+        gate_order = TRACK_CONFIG[track].get("gate_order", ['Gate A', 'Gate B', 'Gate C', 'Gate D'])
+        gate_normals = []
+        for gate_name in gate_order:
+            yaw_deg = gate_positions[gate_name][3]
+            yaw_rad = np.radians(yaw_deg)
+            gate_normals.append(np.array([np.cos(yaw_rad), np.sin(yaw_rad), 0.0]))
+        gate_normals = np.array(gate_normals)
+        planned_trajectory = generate_full_lemniscate_trajectory(
+            gate_positions,
+            gate_order,
+            gate_normals,
+            straight_dist=0.6,
+        )
 
     dynamics_state = [x, y, z, vx, vy, vz, yaw] # x, y, z, vx, vy, vz, cur_yaw
 
@@ -461,6 +484,9 @@ if __name__ == "__main__":
         'ekf_predictions': [p for p in ekf_predictions[start_frame:end_frame] if p],
         'dyn_poses': dyn_poses[start_frame:end_frame],
         'actual_poses': actual_poses[start_frame:end_frame],
+        'planned_trajectory': planned_trajectory.tolist() if planned_trajectory is not None else [],
+        'gate_positions': gate_positions,
+        'track': track,
         'npe_errors': npe_errors.tolist(),
         'ekf_errors': ekf_errors.tolist() if ekf_errors is not None else [],
         'dyn_errors': dyn_errors.tolist() if dyn_errors is not None else [],

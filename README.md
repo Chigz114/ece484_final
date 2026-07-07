@@ -46,6 +46,21 @@ This project implements a complete vision control pipeline:
 python scripts/ece484_vision_closed_loop.py --track lemniscate --ekf
 ```
 
+## External Assets
+
+Large generated assets are intentionally not included in this repository:
+
+- `outputs/`: trained NeRF/GSplat scenes and nerfstudio checkpoints
+- `npe_models/`: trained Neural Pose Estimator checkpoints
+- `npe_datasets/`: rendered training datasets
+- `train_gate/`, `train_ellipse/`: gate detector/refiner datasets and weights
+- `closed_loop/`, `videos/`: generated evaluation outputs
+
+Place these directories at the repository root before running the full closed-loop
+pipeline. The committed code and small configuration files are sufficient to show
+the implementation structure, but the large model/data artifacts must be supplied
+separately.
+
 ## Dependencies
 
 - PyTorch, torchvision
