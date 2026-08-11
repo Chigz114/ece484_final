@@ -1,0 +1,55 @@
+# Quad Pilots Circle renderer environment verified on 2026-08-10.
+#
+# This is an overlay venv created with --system-site-packages on top of the
+# existing mvot-mmaction environment.  It is an audit manifest, not a blindly
+# installable requirements file: torch/torchvision are inherited and the CUDA
+# compiler lives in a separate Conda prefix.
+
+# inherited base
+python==3.10.20
+torch==2.1.0+cu118
+torchvision==0.16.0+cu118
+
+# overlay-local Python packages (`pip list --local --format=freeze`)
+absl-py==2.1.0
+beautifulsoup4==4.15.0
+docstring_parser==0.16
+gdown==6.1.0
+gsplat==1.0.0
+imageio==2.34.1
+jaxtyping==0.2.36
+joblib==1.4.2
+lightning-utilities==0.11.2
+msgpack==1.0.8
+nerfstudio==1.1.4
+ninja==1.11.1.1
+protobuf==4.25.3
+PySocks==1.7.1
+pytorch-msssim==1.0.0
+scikit-learn==1.3.2
+shtab==1.7.1
+soupsieve==2.9.2
+tensorboard==2.16.2
+tensorly==0.8.1
+threadpoolctl==3.5.0
+torchmetrics==1.3.2
+tyro==0.8.12
+viser==0.2.3
+websockets==12.0
+
+# `/home/chi/UAV/cuda-11.8` Conda prefix
+cuda-cccl==11.8.89
+cuda-cudart==11.8.89
+cuda-cudart-dev==11.8.89
+cuda-nvcc==11.8.89
+cuda-version==11.8
+gxx_linux-64==11.2.0
+
+# build controls
+TORCH_CUDA_ARCH_LIST=8.9
+MAX_JOBS=1
+
+# NPE initialization cache (official torchvision ResNet50 IMAGENET1K_V1)
+# /home/chi/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth
+# size=102530333
+# sha256=0676ba61b6795bbe1773cffd859882e5e297624d384b6993f7c9e683e722fb8a

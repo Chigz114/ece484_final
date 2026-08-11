@@ -1,0 +1,99 @@
+{
+  "contract": {
+    "dt": 0.05,
+    "dyn": "historical current-position/previous-velocity one-step prediction with uniform noise",
+    "dyn_seed": 42,
+    "jitter": "std of consecutive xyz displacement magnitudes in centimeters",
+    "metric_window": "Python range(first controller pass, last controller pass)"
+  },
+  "delta_percent_vs_teaser": {
+    "DYN": {
+      "jitter_cm": 4.102372340033257,
+      "max_cm": 1.0410095505442907,
+      "mean_cm": 0.1310400202181022,
+      "std_cm": 5.188472093472356
+    },
+    "EKF": {
+      "jitter_cm": -10.303951846088749,
+      "max_cm": -49.14095801112401,
+      "mean_cm": -32.9099852514074,
+      "std_cm": -36.20071936204046
+    },
+    "GT": {
+      "jitter_cm": -33.622817721994416
+    },
+    "NPE": {
+      "jitter_cm": -2.972183290328984,
+      "max_cm": 36.7061621803603,
+      "mean_cm": -21.63063458208521,
+      "std_cm": -3.943448533047722
+    }
+  },
+  "ekf_vs_npe": {
+    "jitter_reduction_percent": 67.27447275561732,
+    "position_mean_reduction_percent": 21.978020912398495
+  },
+  "metric_window": {
+    "end_step_exclusive": 459,
+    "samples": 417,
+    "saved_observations": 460,
+    "start_step_inclusive": 42,
+    "teaser_displayed_total_frames": 500
+  },
+  "reference": {
+    "DYN": {
+      "jitter_cm": 3.34,
+      "max_cm": 14.2,
+      "mean_cm": 8.3,
+      "std_cm": 2.5
+    },
+    "EKF": {
+      "jitter_cm": 1.37,
+      "max_cm": 19.2,
+      "mean_cm": 7.2,
+      "std_cm": 3.7
+    },
+    "GT": {
+      "jitter_cm": 0.95
+    },
+    "NPE": {
+      "jitter_cm": 3.87,
+      "max_cm": 25.3,
+      "mean_cm": 7.9,
+      "std_cm": 4.0
+    }
+  },
+  "reproduced": {
+    "DYN": {
+      "jitter_cm": 3.4770192361571106,
+      "max_cm": 14.347823356177289,
+      "mean_cm": 8.310876321678103,
+      "std_cm": 2.629711802336809
+    },
+    "EKF": {
+      "jitter_cm": 1.2288358597085842,
+      "max_cm": 9.764936061864189,
+      "mean_cm": 4.830481061898667,
+      "std_cm": 2.3605733836045033
+    },
+    "GT": {
+      "jitter_cm": 0.630583231641053
+    },
+    "NPE": {
+      "jitter_cm": 3.7549765066642684,
+      "max_cm": 34.58665903163116,
+      "mean_cm": 6.1911798680152685,
+      "std_cm": 3.842262058678091
+    }
+  },
+  "schema_version": 1,
+  "source_artifacts": {
+    "json": "/home/chi/UAV/quadpilot-data/closed_loop/lemniscate_launch_finetune_seed42_both_s1200_l2_v1/lemniscate_ekf.json",
+    "json_sha256": "9b54bf9c489f08dbc90b8de9d5f0d443743e034eb1a9f36642c5249ad8b60e72",
+    "npe_checkpoint_sha256": "1e15a6747961441561c26b8818973260214279aeb072165664bebc577e76f41a",
+    "npz": "/home/chi/UAV/quadpilot-data/closed_loop/lemniscate_launch_finetune_seed42_both_s1200_l2_v1/lemniscate_ekf.npz",
+    "npz_sha256": "223a8c22297361cbf937ee66577ebbdb08f10c26e1dfa716f07b5e603162de24"
+  },
+  "track": "lemniscate",
+  "video_url": "https://www.youtube.com/watch?v=8l80orgLiXs"
+}

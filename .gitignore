@@ -11,6 +11,7 @@ npe_models/
 # Generated videos and simulation outputs
 videos/
 closed_loop/
+repro_outputs/
 
 # Training directories
 train_gate/

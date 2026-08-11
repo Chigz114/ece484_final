@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "source_commit": "f0232f67d3b43ca8b8159cb7756292370dfec510",
+  "controller_reference_commit": "6f10190",
+  "coordinate_frame": "project NeRF world frame",
+  "gate_radius_m": 0.38,
+  "pass_radius_multiplier": 1.0,
+  "laps": 2,
+  "dt_s": 0.05,
+  "observation": "ground-truth x,y,z,yaw without noise",
+  "tracks": {
+    "circle": {
+      "successful_crossings": 8,
+      "required_crossings": 8,
+      "success_rate": 1.0,
+      "mean_gate_error_m": 0.0255279142,
+      "mission_time_s": 17.760118765,
+      "steps": 356
+    },
+    "uturn": {
+      "successful_crossings": 8,
+      "required_crossings": 8,
+      "success_rate": 1.0,
+      "mean_gate_error_m": 0.0262237477,
+      "mission_time_s": 16.532277053,
+      "steps": 331
+    },
+    "lemniscate": {
+      "successful_crossings": 8,
+      "required_crossings": 8,
+      "success_rate": 1.0,
+      "mean_gate_error_m": 0.0219959584,
+      "mission_time_s": 22.682340304,
+      "steps": 454
+    }
+  }
+}

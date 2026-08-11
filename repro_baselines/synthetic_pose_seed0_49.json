@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "seed_range_inclusive": [0, 49],
+  "position_noise_std_per_axis_m": 0.05,
+  "yaw_noise_std_deg": 1.0,
+  "crossing_hysteresis_m": 0.05,
+  "gate_radius_m": 0.38,
+  "laps": 2,
+  "warning": "Synthetic estimator-interface stress test, not an NPE checkpoint result",
+  "tracks": {
+    "circle": {
+      "raw": {
+        "completed_runs": 47,
+        "mean_success_rate": 0.9925,
+        "mean_pose_error_m": 0.0794970168,
+        "mean_gate_error_m": 0.1486138681
+      },
+      "ekf": {
+        "completed_runs": 50,
+        "mean_success_rate": 1.0,
+        "mean_pose_error_m": 0.0321730175,
+        "mean_gate_error_m": 0.0343061727
+      }
+    },
+    "uturn": {
+      "raw": {
+        "completed_runs": 41,
+        "mean_success_rate": 0.9625,
+        "mean_pose_error_m": 0.0795268976,
+        "mean_gate_error_m": 0.1263906559
+      },
+      "ekf": {
+        "completed_runs": 50,
+        "mean_success_rate": 1.0,
+        "mean_pose_error_m": 0.0321483464,
+        "mean_gate_error_m": 0.0350525980
+      }
+    },
+    "lemniscate": {
+      "raw": {
+        "completed_runs": 44,
+        "mean_success_rate": 0.985,
+        "mean_pose_error_m": 0.0795596789,
+        "mean_gate_error_m": 0.1206824675
+      },
+      "ekf": {
+        "completed_runs": 50,
+        "mean_success_rate": 1.0,
+        "mean_pose_error_m": 0.0319893356,
+        "mean_gate_error_m": 0.0326826390
+      }
+    }
+  }
+}

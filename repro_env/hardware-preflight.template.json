@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "stage": "bench_prop_off",
+  "evidence": {
+    "vicon_from_nerf": {
+      "path": "hardware-evidence/vicon_from_nerf.json",
+      "sha256": "REPLACE_AFTER_CALIBRATION"
+    },
+    "camera_intrinsics": {
+      "path": "hardware-evidence/camera_intrinsics.json",
+      "sha256": "REPLACE_AFTER_CALIBRATION"
+    },
+    "body_from_camera": {
+      "path": "hardware-evidence/body_from_camera.json",
+      "sha256": "REPLACE_AFTER_CALIBRATION"
+    }
+  },
+  "topics": {
+    "pose": "/cf/pose",
+    "odom": "/cf/odom",
+    "image": "/cf/camera/image_rect",
+    "setpoint": "/cf/setpoint",
+    "command": "/cf/cmd_acc",
+    "estop": "/cf/estop"
+  },
+  "frames": {
+    "npe": "nerf_world",
+    "pose": "vicon_world",
+    "command": "world_accel_yaw_rate"
+  },
+  "timeouts_s": {
+    "pose": 0.1,
+    "image": 0.2,
+    "setpoint": 0.2,
+    "command": 0.1
+  },
+  "geofence_m": {
+    "min": [-6.5, -9.0, -1.5],
+    "max": [2.0, 1.0, 1.5]
+  },
+  "control_limits": {
+    "max_acceleration_mps2": 2.0,
+    "max_yaw_rate_rad_s": 1.0
+  },
+  "manual_safety_checks": {
+    "propellers_removed": false,
+    "operator_present": false,
+    "physical_estop_tested": false,
+    "radio_kill_tested": false,
+    "vicon_occlusion_tested": false,
+    "command_sign_tested": false,
+    "geofence_tested": false,
+    "no_people_in_test_volume": false,
+    "battery_secured": false
+  }
+}

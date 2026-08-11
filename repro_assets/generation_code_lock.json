@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "locked_utc": "2026-08-09T20:56:07Z",
+  "purpose": "Freeze code identity for resumable NPE dataset generation",
+  "active_uniform_run": "/home/chi/UAV/quadpilot-data/npe_datasets/lemniscate/uniform_seed42_10000_v1",
+  "base_commit": "f0232f67fd22cd7646a57b906d316bdf8c71ef2e",
+  "files": [
+    {
+      "path": "scripts/generate_repro_npe_dataset.py",
+      "sha256": "e9f55d69a5270b3a0a40281e4f55f260f245b2806762c510bcfa9a76fd0ad7c6",
+      "size_bytes": 5232
+    },
+    {
+      "path": "scripts/generate_repro_gate_dataset.py",
+      "sha256": "a07467ef65b1fb9c6ce6b3ec09dfac2c2007c919d8125077594a37b5ad14bb1c",
+      "size_bytes": 6700
+    },
+    {
+      "path": "quadpilot_repro/data_generation.py",
+      "sha256": "042dc891a18b4d9038c69486ca1aeb734f02bda489b9455f23dbb871d46f9869",
+      "size_bytes": 32755
+    },
+    {
+      "path": "quadpilot_repro/renderer.py",
+      "sha256": "bfbd6c3a02e42cd3ddf4e030b1684744a9d04e903ee0bec60e019cd30ceaba58",
+      "size_bytes": 10764
+    },
+    {
+      "path": "quadpilot_repro/gate_sampling.py",
+      "sha256": "b89b84da39c809507d800049d17b298c49a5c1311b8131f42c4d3620ae0dff70",
+      "size_bytes": 10076
+    },
+    {
+      "path": "quadpilot_repro/tracks.py",
+      "sha256": "0428387c07ef283964a2764a78df93dfa2f37fa04e1662e9fc9b157a34d0bec5",
+      "size_bytes": 4915
+    },
+    {
+      "path": "quadpilot_repro/environment.py",
+      "sha256": "55c9298b7c1bf654cc50bc1eb1a85ca6466cb51a7a9b88cf59a3d68d9e7d68e4",
+      "size_bytes": 2487
+    }
+  ]
+}

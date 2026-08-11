@@ -66,3 +66,14 @@ separately.
 - PyTorch, torchvision
 - nerfstudio
 - OpenCV, NumPy, SciPy
+
+## Reproduction status
+
+The recovery work now has an asset-independent, strict visual-control baseline.
+It runs the submitted final planner/controller against an injectable pose
+observation, fixes the body/world-frame dynamics contract, and evaluates two
+ordered laps without the original evaluator's double-counting behavior.
+
+See [REPRODUCTION.md](REPRODUCTION.md) for the exact command, current numerical
+baseline, coordinate conventions, and the boundary between the verified control
+core and the still-missing NeRF/NPE assets.

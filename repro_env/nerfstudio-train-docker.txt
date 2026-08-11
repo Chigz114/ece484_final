@@ -1,0 +1,45 @@
+Quad Pilots Nerfstudio training environment (verified 2026-08-10)
+
+Image
+  reference: docker.io/dromni/nerfstudio@sha256:ff0107a7db96bb8ee29c638729328b832b268b890c50f2a2ff25988bb84d4f75
+  platform: linux/amd64
+  image size reported by Docker: 12,050,967,315 bytes
+  implicit pulls: disabled by scripts/reproduce_gsplat_docker.sh
+  container network during preflight/training: disabled
+
+Pinned core packages
+  nerfstudio 1.1.4
+  gsplat 1.0.0
+  torch 2.1.2+cu118
+  torchvision 0.16.2+cu118
+  viser 0.2.3
+
+Known deviations already present in the immutable upstream image
+  rawpy 0.22.0 requires numpy>=2.0, but the image has numpy 1.26.4
+  ninja 1.11.1.1 reports unsupported platform through pip check
+The preflight accepts exactly these two lines and rejects any added or changed
+dependency error. Neither package is on the Splatfacto data/parser/train path.
+
+Host/container GPU bridge
+  NVIDIA Container Toolkit 1.19.1
+  GPU: NVIDIA GeForce RTX 4060 Laptop GPU
+  driver: 581.29
+  memory: 8,188 MiB
+  compute capability: 8.9
+
+Verified Lemniscate preflight
+  audit: /home/chi/UAV/quadpilot-data/gsplat_outputs/lemniscate/preflight/preflight_ns114_20260810_v4
+  receipt SHA-256: 6614c5be765ab7456eac95403af4b2c6fb34e757afc263ba3aa7b9f075cd356a
+  receipt files/images: 1,555 / 1,553
+  verified bytes: 3,370,611,629
+  cameras/images: 1,553 / 1,553
+  sparse points: 183,994
+
+Local hardware boundary
+  WSL memory limit is about 7.6 GiB. Caching all 1,553 source images at
+  1080x1920 RGB uint8 would require about 9.0 GiB before process/model overhead.
+  The local run is therefore an explicitly labeled 0.5 camera-resolution
+  variant. It does not rewrite the source images and must not be reported as the
+  original full-resolution experiment. A strict full-resolution run should use
+  a machine with at least 32 GiB RAM.
+
