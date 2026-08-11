@@ -1,79 +1,110 @@
-# ECE484 Final Project: Vision-Based Drone Control
+# QuadPilot ECE484
 
-A vision-based drone control system using NeRF rendering, Neural Pose Estimator (NPE), and Extended Kalman Filter (EKF) for closed-loop trajectory tracking.
+Reproducible vision-based quadrotor racing with Gaussian Splatting, a ResNet50
+Neural Pose Estimator (NPE), EKF fusion, and closed-loop gate tracking.
 
-## Overview
+The recovered simulation pipeline is complete for Circle, Lemniscate, and
+U-turn. Each track passes two ordered laps (8/8 gates) with locked datasets,
+checkpoints, results, and SHA-256 provenance. Physical Crazyflie deployment is
+kept behind an offline, fail-closed readiness check until calibration and
+prop-off safety evidence are supplied.
 
-This project implements a complete vision control pipeline:
-1. **Data Generation**: Render training images from NeRF scenes
-2. **NPE Training**: Train neural network to predict drone pose from images
-3. **EKF Fusion**: Fuse NPE predictions with dynamics model to reduce jitter
-4. **Closed-loop Simulation**: Real-time drone control using visual feedback
+## Project layout
 
-## Core Files
-
-```
-├── train_npe.py                    # NPE model training
-├── finetune_npe.py                 # NPE model fine-tuning
-├── generate_image.py               # NeRF image generation
-├── auto_dataset_generator.py       # Automatic dataset generation
-└── scripts/
-    ├── ece484_vision_controller.py # Vision controller (NPE + EKF)
-    ├── ece484_vision_closed_loop.py# Closed-loop simulation
-    ├── ekf_state_estimator.py      # EKF state estimator
-    ├── drone_dynamics.py           # Drone dynamics model
-    └── ns-renderer.py              # NeRF rendering interface
+```text
+ece484_final/
+├── src/quadpilot/          # Installable control, perception, simulation, and CLI package
+├── configs/                # Asset manifest, environment pins, and hardware templates
+├── scripts/                # Environment bootstrap and pinned GSplat wrapper
+├── tests/                  # Unit, integration, and locked regression tests
+├── docs/                   # Architecture, data, results, and safety documentation
+├── results/baselines/      # Small committed reference results (never large model files)
+├── pyproject.toml          # Package metadata and dependencies
+└── README.md
 ```
 
-## Key Contributions
+Large datasets, GSplat runs, NPE checkpoints, and closed-loop outputs stay
+outside Git. The verified local data root is `/home/chi/UAV/quadpilot-data` in
+WSL; see [datasets](docs/datasets.md) for the canonical layout.
 
-- **Neural Pose Estimator (NPE)**: ResNet50 backbone, predicts [x, y, z, yaw] from single image
-- **EKF State Fusion**: Fuses visual observations with dynamics predictions for smoother output
-- **Gate-focused Fine-tuning**: Increased training samples near gates to improve accuracy in critical regions
+## Quick start
 
-## Performance
+Python 3.10 is the reference version.
 
-| Model | Mean Position Error | Yaw Error |
-|:---|:---|:---|
-| NPE (Base) | 10.3 cm | 1.0 deg |
-| NPE (Fine-tuned) | 8.9 cm | 1.0 deg |
-| EKF Fusion | ~40% jitter reduction | - |
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+quadpilot --help
+quadpilot simulate oracle --track all --max-steps 1200
+```
 
-## Usage
+For NPE training, install the ML extra in the CUDA-enabled WSL environment:
 
 ```bash
-# Closed-loop simulation
-python scripts/ece484_vision_closed_loop.py --track lemniscate --ekf
+python -m pip install -e '.[ml]'
+quadpilot train npe --help
+quadpilot evaluate npe --help
+quadpilot simulate closed-loop --help
 ```
 
-## External Assets
+Nerfstudio/gsplat uses the separately pinned environment described in
+`configs/environments/`; it is intentionally not mixed into the NPE environment.
 
-Large generated assets are intentionally not included in this repository:
+## Main commands
 
-- `outputs/`: trained NeRF/GSplat scenes and nerfstudio checkpoints
-- `npe_models/`: trained Neural Pose Estimator checkpoints
-- `npe_datasets/`: rendered training datasets
-- `train_gate/`, `train_ellipse/`: gate detector/refiner datasets and weights
-- `closed_loop/`, `videos/`: generated evaluation outputs
+```text
+quadpilot data download ...
+quadpilot data generate uniform ...
+quadpilot data generate gate ...
+quadpilot train npe ...
+quadpilot evaluate npe ...
+quadpilot simulate closed-loop ...
+quadpilot verify assets ...
+quadpilot verify dataset ...
+quadpilot verify closed-loop ...
+quadpilot hardware calibrate ...
+quadpilot hardware preflight ...
+```
 
-Place these directories at the repository root before running the full closed-loop
-pipeline. The committed code and small configuration files are sufficient to show
-the implementation structure, but the large model/data artifacts must be supplied
-separately.
+Every subcommand supports `--help`. Expensive or hardware-facing work is never
+started by the package simply because it is installed.
 
-## Dependencies
+## Verified simulation results
 
-- PyTorch, torchvision
-- nerfstudio
-- OpenCV, NumPy, SciPy
+| Track | NPE training | Frozen evaluation | Closed loop |
+|:--|:--|:--|:--|
+| Circle | base + gate fine-tune | PASS | raw 8/8, EKF 8/8 |
+| Lemniscate | base + gate + launch-corridor fine-tune | PASS | raw 8/8, EKF 8/8 |
+| U-turn | base + gate fine-tune | PASS | raw 8/8, EKF 8/8 |
 
-## Reproduction status
+The locked Lemniscate teaser comparison gives NPE mean error 6.19 cm and EKF
+mean error 4.83 cm over the matching metric window. EKF reduces NPE mean error
+by 21.98% and jitter by 67.27%; this is within the intended reproduction target
+of the published project video.
 
-The recovery work now has an asset-independent, strict visual-control baseline.
-It runs the submitted final planner/controller against an injectable pose
-observation, fixes the body/world-frame dynamics contract, and evaluates two
-ordered laps without the original evaluator's double-counting behavior.
+Detailed commands, hashes, caveats, and frozen TEST policy are in the
+[reproduction log](docs/reproduction.md). A compact numerical summary is in
+[results](docs/results.md).
 
-See [REPRODUCTION.md](REPRODUCTION.md) for the exact command, current numerical
-baseline, coordinate conventions, and the boundary between the verified control
-core and the still-missing NeRF/NPE assets.
+## Validation
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -p 'test_*.py'
+ruff check src tests
+```
+
+Current locked CPU suite: **151 passed, 1 opt-in Docker diagnostic skipped**.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Reproduction procedure and full evidence](docs/reproduction.md)
+- [Dataset and external-asset layout](docs/datasets.md)
+- [Coordinate frames](docs/coordinate_frames.md)
+- [Verified results](docs/results.md)
+- [Hardware safety boundary](docs/hardware_safety.md)
+
+The original ECE484 submission remains recoverable from Git history at commit
+`f0232f67`; it is not mixed into the maintained runtime tree.

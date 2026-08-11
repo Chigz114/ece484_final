@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quadpilot-ece484"
+version = "1.0.0"
+description = "Reproducible vision-based quadrotor racing with GSplat, neural pose estimation, and EKF fusion"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "Research and educational use" }
+authors = [{ name = "Quad Pilots" }]
+dependencies = [
+  "numpy>=1.24,<2.1",
+  "Pillow>=9.5",
+]
+
+[project.optional-dependencies]
+ml = [
+  "torch==2.1.2",
+  "torchvision==0.16.2",
+]
+render = [
+  "nerfstudio==1.1.4",
+  "gsplat==1.0.0",
+]
+dev = [
+  "ruff>=0.6",
+]
+
+[project.scripts]
+quadpilot = "quadpilot.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

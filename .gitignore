@@ -1,59 +1,54 @@
-# NeRF outputs and rendered images
+# Python environments and package artifacts
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+
+# Python/test/tool caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Large external datasets, checkpoints, and renderer outputs
+data/
 outputs/
+npe_datasets/
+npe_models/
+closed_loop/
+videos/
+repro_outputs/
 circle/
 lemniscate/
 uturn/
-
-# Training data and models (too large)
-npe_datasets/
-npe_models/
-
-# Generated videos and simulation outputs
-videos/
-closed_loop/
-repro_outputs/
-
-# Training directories
 train_gate/
 train_ellipse/
 one_gate/
 empty_arena/
 manual_dataset/
-images/
 
-# Trajectory files (generated)
+# Generated trajectories, metrics, and visualizations
 *_trajectory.txt
 *_vision_trajectory.txt
-scripts/*_trajectory.txt
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# Generated HTML visualizations
+*_metrics.json
 scripts/vis/
 
-# Metrics JSON (generated)
-scripts/*_metrics.json
+# Run-specific hardware evidence (the template remains committed)
+configs/hardware/preflight.json
+configs/hardware/evidence/
 
-# Deprecated/unused files
-interactive_camera_tool.py
-interactive_npe_test.py
-ns_renderer_4_gates.py
-test_model_on_trainset.py
-test_vision_controller.py
-generate_gate_focused_data.py
-
-# Plot generation scripts (presentation specific)
-scripts/generate_npe_comparison.py
-scripts/generate_npe_heatmap.py
-scripts/generate_npe_training_plot.py
-scripts/generate_plots.py
-presentation_outline.md
+# Local logs and temporary downloads
+*.log
+*.part
+*.tmp
